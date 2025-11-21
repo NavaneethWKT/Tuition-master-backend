@@ -3,19 +3,33 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
 from app import models
-from app.database import engine, get_db, init_db
+from app.database import engine, get_db, init_db, run_migrations
+
+# Import routers
+from app.api.auth.router import router as auth_router
+from app.api.school_admin.router import router as school_admin_router
+from app.api.teacher.router import router as teacher_router
+from app.api.student.router import router as student_router
+from app.api.parent.router import router as parent_router
 
 # Initialize database extensions and triggers
 init_db()
 
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
+# Run database migrations automatically on startup
+run_migrations()
 
 app = FastAPI(
     title="Tuition Master API",
     description="FastAPI backend for Tuition Master application with PostgreSQL database",
     version="1.0.0"
 )
+
+# Include routers
+app.include_router(auth_router)
+app.include_router(school_admin_router)
+app.include_router(teacher_router)
+app.include_router(student_router)
+app.include_router(parent_router)
 
 
 @app.get("/")
@@ -24,7 +38,7 @@ async def root():
         "message": "Welcome to Tuition Master API",
         "docs": "/docs",
         "health": "/health",
-        "database": "PostgreSQL with 7 tables (no users table)"
+        "database": "PostgreSQL with 9 tables (no users table)"
     }
 
 

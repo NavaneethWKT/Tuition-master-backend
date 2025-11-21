@@ -1,6 +1,9 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from alembic import command
+from alembic.config import Config
+from pathlib import Path
 from app.config import settings
 
 # Create database engine
@@ -36,6 +39,13 @@ def init_db():
             END;
             $$ language 'plpgsql';
         """))
+
+
+# Run database migrations
+def run_migrations():
+    """Run Alembic migrations to update database schema"""
+    alembic_cfg = Config(str(Path(__file__).parent.parent / "alembic.ini"))
+    command.upgrade(alembic_cfg, "head")
 
 
 # Dependency to get database session

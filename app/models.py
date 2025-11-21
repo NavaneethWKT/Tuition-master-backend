@@ -3,7 +3,7 @@ from sqlalchemy import (
     ForeignKey, CheckConstraint, UniqueConstraint, 
     BigInteger, ARRAY
 )
-from sqlalchemy.dialects.postgresql import UUID, ARRAY as PG_ARRAY
+from sqlalchemy.dialects.postgresql import UUID, ARRAY as PG_ARRAY, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
@@ -37,6 +37,7 @@ class School(Base):
     admin_name = Column(String(255))
     admin_email = Column(String(255))
     admin_phone = Column(String(20))
+    password_hash = Column(String(255))  # Optional for school login
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -141,6 +142,7 @@ class Student(Base):
     school = relationship("School")
     class_ = relationship("Class", back_populates="students")
     parent = relationship("Parent", back_populates="student", uselist=False, cascade="all, delete-orphan")
+    mock_exams = relationship("MockExam", back_populates="student", cascade="all, delete-orphan")
 
 
 # =====================================================
@@ -154,6 +156,7 @@ class Parent(Base):
     full_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
     phone = Column(String(20), nullable=False)
+    password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
@@ -184,3 +187,42 @@ class StudyMaterial(Base):
     class_ = relationship("Class", back_populates="study_materials")
     subject = relationship("Subject", back_populates="study_materials")
     teacher = relationship("Teacher", back_populates="study_materials")
+
+
+# =====================================================
+# 8. MOCK_EXAMS TABLE
+# =====================================================
+class MockExam(Base):
+    __tablename__ = "mock_exams"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    title = Column(Text)
+    document_id = Column(Text)  # optional: source doc
+    subject = Column(Text)
+    chapter = Column(Text)
+    class_level = Column(Text)
+    created_by = Column(UUID(as_uuid=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    student = relationship("Student", back_populates="mock_exams")
+    questions = relationship("MockQuestion", back_populates="exam", cascade="all, delete-orphan")
+
+
+# =====================================================
+# 9. MOCK_QUESTIONS TABLE
+# =====================================================
+class MockQuestion(Base):
+    __tablename__ = "mock_questions"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    exam_id = Column(UUID(as_uuid=True), ForeignKey("mock_exams.id", ondelete="CASCADE"), nullable=False)
+    question_text = Column(Text, nullable=False)
+    question_type = Column(Text, nullable=False)  # 'mcq'|'short_answer'|'tf'
+    options = Column(JSONB)  # for mcq: [{"id":"A", "text":"...", "correct": false}, ...]
+    answer = Column(Text)  # canonical answer
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    exam = relationship("MockExam", back_populates="questions")
