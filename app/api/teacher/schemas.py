@@ -26,6 +26,7 @@ class StudyMaterialResponse(BaseModel):
     title: str
     description: Optional[str]
     file_url: str
+    public_id: Optional[str]
     file_type: str
     file_size: Optional[int]
     upload_date: datetime
