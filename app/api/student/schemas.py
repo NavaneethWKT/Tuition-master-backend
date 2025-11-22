@@ -33,3 +33,29 @@ class StudentResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class StudyMaterialWithSubjectResponse(BaseModel):
+    """Schema for study material response with subject name"""
+    id: UUID
+    class_id: UUID
+    subject_id: UUID
+    subject_name: str
+    teacher_id: UUID
+    title: str
+    description: Optional[str]
+    file_url: str
+    file_type: str
+    file_size: Optional[int]
+    upload_date: datetime
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class StudentClassMaterialsResponse(BaseModel):
+    """Schema for student class materials response"""
+    materials: list[StudyMaterialWithSubjectResponse]
+    total_materials: int
+    total_subjects: int
+

@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
 from app.api.parent.schemas import ParentCreate, ParentResponse
+from app.api.student.schemas import StudentResponse
 from app.utils.password import hash_password
+from uuid import UUID
 
 router = APIRouter(
     prefix="/api/parent",
@@ -64,4 +66,31 @@ async def create_parent(
     db.refresh(parent)
     
     return parent
+
+
+@router.get("/{parent_id}/student", response_model=StudentResponse, status_code=status.HTTP_200_OK)
+async def get_parent_student(
+    parent_id: UUID = Path(..., description="Parent ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get student details for a parent.
+    """
+    # Verify parent exists
+    parent = db.query(models.Parent).filter(models.Parent.id == parent_id).first()
+    if not parent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Parent not found"
+        )
+    
+    # Get the student associated with this parent
+    student = db.query(models.Student).filter(models.Student.id == parent.student_id).first()
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found for this parent"
+        )
+    
+    return student
 

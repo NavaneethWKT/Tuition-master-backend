@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.database import get_db
 from app import models
-from app.api.student.schemas import StudentCreate, StudentResponse
+from app.api.student.schemas import (
+    StudentCreate, StudentResponse, 
+    StudyMaterialWithSubjectResponse, StudentClassMaterialsResponse
+)
 from app.utils.password import hash_password
 from datetime import datetime
+from uuid import UUID
 
 router = APIRouter(
     prefix="/api/student",
@@ -95,4 +100,67 @@ async def create_student(
     db.refresh(student)
     
     return student
+
+
+@router.get("/{student_id}/class-materials", response_model=StudentClassMaterialsResponse, status_code=status.HTTP_200_OK)
+async def get_student_class_materials(
+    student_id: UUID = Path(..., description="Student ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all study materials uploaded for a student's class.
+    Returns materials with subject names, total materials count, and total subjects count.
+    """
+    # Verify student exists
+    student = db.query(models.Student).filter(models.Student.id == student_id).first()
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found"
+        )
+    
+    # Check if student has a class assigned
+    if not student.class_id:
+        return StudentClassMaterialsResponse(
+            materials=[],
+            total_materials=0,
+            total_subjects=0
+        )
+    
+    # Get all study materials for the student's class with subject information
+    materials_query = db.query(
+        models.StudyMaterial,
+        models.Subject.name.label('subject_name')
+    ).join(
+        models.Subject, models.StudyMaterial.subject_id == models.Subject.id
+    ).filter(
+        models.StudyMaterial.class_id == student.class_id
+    ).all()
+    
+    # Format materials with subject name
+    materials_list = []
+    subject_ids = set()
+    
+    for material, subject_name in materials_query:
+        subject_ids.add(material.subject_id)
+        materials_list.append(StudyMaterialWithSubjectResponse(
+            id=material.id,
+            class_id=material.class_id,
+            subject_id=material.subject_id,
+            subject_name=subject_name,
+            teacher_id=material.teacher_id,
+            title=material.title,
+            description=material.description,
+            file_url=material.file_url,
+            file_type=material.file_type,
+            file_size=material.file_size,
+            upload_date=material.upload_date,
+            created_at=material.created_at
+        ))
+    
+    return StudentClassMaterialsResponse(
+        materials=materials_list,
+        total_materials=len(materials_list),
+        total_subjects=len(subject_ids)
+    )
 
