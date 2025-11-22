@@ -41,3 +41,15 @@ class TeacherStatisticsResponse(BaseModel):
     total_classes: int
     total_students: int
 
+
+class SubjectOption(BaseModel):
+    """Schema for subject option in dropdown"""
+    name: str
+    subject_id: Optional[UUID] = None
+
+
+class TeacherSubjectsResponse(BaseModel):
+    """Schema for teacher subjects response (for dropdown)"""
+    teacher_id: UUID
+    subjects: list[SubjectOption]
+

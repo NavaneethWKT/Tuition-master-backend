@@ -4,7 +4,10 @@ from sqlalchemy import func
 from typing import List
 from app.database import get_db
 from app import models
-from app.api.teacher.schemas import ClassResponse, StudyMaterialResponse, TeacherStatisticsResponse
+from app.api.teacher.schemas import (
+    ClassResponse, StudyMaterialResponse, TeacherStatisticsResponse, 
+    TeacherSubjectsResponse, SubjectOption
+)
 from app.api.student.schemas import StudentResponse
 from uuid import UUID
 
@@ -141,4 +144,49 @@ async def get_class_students(
     ).all()
     
     return students
+
+
+@router.get("/{teacher_id}/subjects", response_model=TeacherSubjectsResponse, status_code=status.HTTP_200_OK)
+async def get_teacher_subjects(
+    teacher_id: UUID = Path(..., description="Teacher ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of subjects for a teacher (for dropdown).
+    Returns the subjects that the teacher teaches with their IDs.
+    """
+    # Verify teacher exists
+    teacher = db.query(models.Teacher).filter(models.Teacher.id == teacher_id).first()
+    if not teacher:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Teacher not found"
+        )
+    
+    # Get subject IDs from the database based on subject names
+    subjects_list = []
+    if teacher.subjects:
+        for subject_name in teacher.subjects:
+            # Find the subject in the database by name and school_id
+            subject = db.query(models.Subject).filter(
+                models.Subject.name == subject_name,
+                models.Subject.school_id == teacher.school_id
+            ).first()
+            
+            if subject:
+                subjects_list.append(SubjectOption(
+                    name=subject_name,
+                    subject_id=subject.id
+                ))
+            else:
+                # If subject not found in database, still include it with empty subject_id
+                subjects_list.append(SubjectOption(
+                    name=subject_name,
+                    subject_id=None
+                ))
+    
+    return TeacherSubjectsResponse(
+        teacher_id=teacher_id,
+        subjects=subjects_list
+    )
 
