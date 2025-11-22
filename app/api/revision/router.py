@@ -87,11 +87,21 @@ async def generate_revision_pointers(
         ai_service_url = settings.AI_SERVICE_URL
         webhook_url = f"{ai_service_url}/api/revision-pointers"
         
-        logger.info(f"📞 Calling AI service for revision pointers - Subject: {subject}, Class: {class_level}, Chapter: {chapter}")
-        logger.info(f"⚠️ Note: AI service currently uses hardcoded values. Parameters provided: Subject={subject}, Class={class_level}, Chapter={chapter}")
+        # Prepare payload with study_material_id if available
+        payload = {
+            "subject": subject,
+            "class_level": class_level,
+            "chapter": chapter
+        }
+        
+        # If we have study_material_id from the request, include it
+        if request.study_material_id:
+            payload["study_material_id"] = str(request.study_material_id)
+        
+        logger.info(f"📞 Calling AI service for revision pointers - study_material_id: {request.study_material_id}, Subject: {subject}, Class: {class_level}, Chapter: {chapter}")
         
         async with httpx.AsyncClient(timeout=120.0) as client:  # 2 minute timeout
-            response = await client.post(webhook_url)
+            response = await client.post(webhook_url, json=payload)
             response.raise_for_status()
             result = response.json()
             
