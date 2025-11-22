@@ -143,6 +143,7 @@ class Student(Base):
     class_ = relationship("Class", back_populates="students")
     parent = relationship("Parent", back_populates="student", uselist=False, cascade="all, delete-orphan")
     mock_exams = relationship("MockExam", back_populates="student", cascade="all, delete-orphan")
+    revisions = relationship("Revision", back_populates="student", cascade="all, delete-orphan")
 
 
 # =====================================================
@@ -227,3 +228,23 @@ class MockQuestion(Base):
     
     # Relationships
     exam = relationship("MockExam", back_populates="questions")
+
+
+# =====================================================
+# 10. REVISIONS TABLE
+# =====================================================
+class Revision(Base):
+    __tablename__ = "revisions"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    subject = Column(String(255), nullable=False)
+    class_level = Column(String(50), nullable=False)
+    chapter = Column(String(255), nullable=False)
+    pointers = Column(PG_ARRAY(Text), nullable=False)  # Array of strings
+    total_pointers = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    student = relationship("Student", back_populates="revisions")
