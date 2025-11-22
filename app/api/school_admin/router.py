@@ -6,7 +6,7 @@ from app.database import get_db
 from app import models
 from app.api.school_admin.schemas import (
     SchoolCreate, SchoolResponse, TeacherCreate, TeacherResponse,
-    SchoolDetailsResponse, ClassResponse
+    SchoolDetailsResponse, ClassCreate, ClassResponse
 )
 from app.utils.password import hash_password
 from datetime import datetime
@@ -214,6 +214,73 @@ async def get_school_teachers(
     ).all()
     
     return teachers
+
+
+@router.post("/classes", response_model=ClassResponse, status_code=status.HTTP_201_CREATED)
+async def create_class(
+    class_data: ClassCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new class for a school.
+    """
+    # Verify school exists
+    school = db.query(models.School).filter(models.School.id == class_data.school_id).first()
+    if not school:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="School not found"
+        )
+    
+    # Validate grade range (1-12)
+    if class_data.grade < 1 or class_data.grade > 12:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Grade must be between 1 and 12"
+        )
+    
+    # Verify class teacher exists and belongs to the same school (if provided)
+    if class_data.class_teacher_id:
+        teacher = db.query(models.Teacher).filter(
+            models.Teacher.id == class_data.class_teacher_id
+        ).first()
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Class teacher not found"
+            )
+        if teacher.school_id != class_data.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Class teacher does not belong to the specified school"
+            )
+    
+    # Check if class with same school_id, grade, and section already exists
+    existing_class = db.query(models.Class).filter(
+        models.Class.school_id == class_data.school_id,
+        models.Class.grade == class_data.grade,
+        models.Class.section == class_data.section
+    ).first()
+    
+    if existing_class:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Class with grade {class_data.grade} and section {class_data.section} already exists for this school"
+        )
+    
+    # Create class
+    class_obj = models.Class(
+        school_id=class_data.school_id,
+        grade=class_data.grade,
+        section=class_data.section,
+        class_teacher_id=class_data.class_teacher_id
+    )
+    
+    db.add(class_obj)
+    db.commit()
+    db.refresh(class_obj)
+    
+    return class_obj
 
 
 @router.get("/schools/{school_id}/classes", response_model=List[ClassResponse], status_code=status.HTTP_200_OK)

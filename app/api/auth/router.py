@@ -162,22 +162,30 @@ async def _login_teacher(login_data: LoginRequest, db: Session) -> TeacherLoginR
 
 async def _login_school(login_data: LoginRequest, db: Session) -> SchoolLoginResponse:
     """Login for school persona"""
-    if not login_data.email:
+    school = None
+    
+    # School login can use email (admin_email or contact_email) or phone (contact_phone, admin_phone, or principal_phone)
+    if login_data.email:
+        school = db.query(models.School).filter(
+            (models.School.admin_email == login_data.email) | 
+            (models.School.contact_email == login_data.email)
+        ).first()
+    elif login_data.phone:
+        school = db.query(models.School).filter(
+            (models.School.contact_phone == login_data.phone) |
+            (models.School.admin_phone == login_data.phone) |
+            (models.School.principal_phone == login_data.phone)
+        ).first()
+    else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email is required for school login"
+            detail="Email or phone number is required for school login"
         )
-    
-    # School login uses admin_email or contact_email
-    school = db.query(models.School).filter(
-        (models.School.admin_email == login_data.email) | 
-        (models.School.contact_email == login_data.email)
-    ).first()
     
     if not school:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            detail="Invalid credentials"
         )
     
     # Verify password if password_hash exists
@@ -185,7 +193,7 @@ async def _login_school(login_data: LoginRequest, db: Session) -> SchoolLoginRes
         if not verify_password(login_data.password, school.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password"
+                detail="Invalid credentials"
             )
     # If no password_hash is set, allow login (for backward compatibility)
     # In production, you should require password_hash

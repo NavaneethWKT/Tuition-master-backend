@@ -19,7 +19,7 @@ class School(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     address = Column(Text, nullable=False)
-    contact_phone = Column(String(20), nullable=False)
+    contact_phone = Column(String(100), nullable=False)
     contact_email = Column(String(255), nullable=False, unique=True)
     registration_date = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -33,10 +33,10 @@ class School(Base):
     # Administrative Details
     principal_name = Column(String(255))
     principal_email = Column(String(255))
-    principal_phone = Column(String(20))
+    principal_phone = Column(String(100))
     admin_name = Column(String(255))
     admin_email = Column(String(255))
-    admin_phone = Column(String(20))
+    admin_phone = Column(String(100))
     password_hash = Column(String(255))  # Optional for school login
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -102,7 +102,7 @@ class Teacher(Base):
     school_id = Column(UUID(as_uuid=True), ForeignKey("schools.id", ondelete="CASCADE"))
     full_name = Column(String(255), nullable=False)
     email = Column(String(255), unique=True)
-    phone = Column(String(20), nullable=False, unique=True)
+    phone = Column(String(100), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
     subjects = Column(PG_ARRAY(Text), nullable=False)
     qualification = Column(String(255))
@@ -129,7 +129,7 @@ class Student(Base):
     class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id", ondelete="SET NULL"))
     full_name = Column(String(255), nullable=False)
     email = Column(String(255), unique=True)
-    phone = Column(String(20), unique=True)
+    phone = Column(String(100), unique=True)
     password_hash = Column(String(255), nullable=False)
     date_of_birth = Column(Date, nullable=False)
     roll_number = Column(String(50))
@@ -155,7 +155,7 @@ class Parent(Base):
     student_id = Column(UUID(as_uuid=True), ForeignKey("students.id", ondelete="CASCADE"), unique=True, nullable=False)
     full_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
-    phone = Column(String(20), nullable=False)
+    phone = Column(String(100), nullable=False)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

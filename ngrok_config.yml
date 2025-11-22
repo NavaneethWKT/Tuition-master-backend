@@ -1,0 +1,11 @@
+version: "2"
+authtoken: # Add your ngrok authtoken here
+tunnels:
+  fastapi:
+    proto: http
+    addr: 8000
+    inspect: true
+    request_header:
+      add:
+        - "ngrok-skip-browser-warning: true"
+

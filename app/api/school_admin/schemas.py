@@ -105,6 +105,14 @@ class SchoolDetailsResponse(BaseModel):
         from_attributes = True
 
 
+class ClassCreate(BaseModel):
+    """Schema for creating a class"""
+    school_id: UUID
+    grade: int  # Must be between 1 and 12
+    section: str  # e.g., "A", "B", "C"
+    class_teacher_id: Optional[UUID] = None  # Optional: assign a class teacher
+
+
 class ClassResponse(BaseModel):
     """Schema for class response"""
     id: UUID

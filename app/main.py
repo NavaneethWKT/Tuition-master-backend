@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
@@ -22,6 +23,17 @@ app = FastAPI(
     title="Tuition Master API",
     description="FastAPI backend for Tuition Master application with PostgreSQL database",
     version="1.0.0"
+)
+
+# Enable CORS for all origins
+# Note: To bypass ngrok browser warning page, clients should include header:
+# "ngrok-skip-browser-warning: true" in their requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*", "ngrok-skip-browser-warning"],  # Allows all headers including ngrok bypass header
 )
 
 # Include routers
