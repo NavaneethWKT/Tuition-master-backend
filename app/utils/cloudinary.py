@@ -14,6 +14,9 @@ cloudinary.config(
     api_secret=settings.CLOUDINARY_API_SECRET
 )
 
+# Log Cloudinary configuration (without sensitive data)
+logger.info(f"☁️ Cloudinary configured - Cloud Name: {settings.CLOUDINARY_CLOUD_NAME}, API Key: {settings.CLOUDINARY_API_KEY[:10]}...")
+
 
 def upload_file(
     file_path: str,
@@ -175,14 +178,23 @@ def get_file_url(public_id: str, resource_type: str = "auto", transformation: Op
         str: File URL
     """
     try:
+        # Clean public_id - remove any query parameters that might have been accidentally included
+        clean_public_id = public_id.split('&')[0].split('?')[0]
+        
+        logger.info(f"🔗 Generating Cloudinary URL - Public ID: {clean_public_id}, Resource Type: {resource_type}")
+        
         url = cloudinary.utils.cloudinary_url(
-            public_id,
+            clean_public_id,
             resource_type=resource_type,
             secure=True,
             **transformation if transformation else {}
         )
-        return url[0]
+        
+        generated_url = url[0]
+        logger.info(f"✅ Generated URL: {generated_url}")
+        
+        return generated_url
     except Exception as e:
-        logger.error(f"Error generating file URL: {str(e)}")
+        logger.error(f"❌ Error generating file URL for public_id: {public_id}: {str(e)}")
         raise
 

@@ -7,8 +7,8 @@ from uuid import UUID
 class Base64UploadRequest(BaseModel):
     fileUrl: str = Field(..., description="Base64 encoded file content")
     filename: str = Field(..., description="Original filename with extension (e.g., document.pdf)")
-    folder: Optional[str] = Field(None, description="Cloudinary folder path (default: tuition_master/documents)")
-    resource_type: str = Field("auto", description="Resource type: auto, image, raw, video")
+    folder: Optional[str] = Field(None, description="Supabase Storage folder path (default: tuition_master/documents)")
+    resource_type: str = Field("auto", description="Resource type (deprecated, kept for compatibility)")
     
     # Study Material fields
     class_id: UUID = Field(..., description="Class ID for the study material")

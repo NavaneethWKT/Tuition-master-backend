@@ -9,10 +9,10 @@ class Settings(BaseSettings):
     DB_PASSWORD: str = ""
     DB_NAME: str = "tuition_master_db"
     
-    # Cloudinary settings
-    CLOUDINARY_CLOUD_NAME: str = ""
-    CLOUDINARY_API_KEY: str = ""
-    CLOUDINARY_API_SECRET: str = ""
+    # Supabase settings
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""  # Service role key for server-side operations
+    SUPABASE_STORAGE_BUCKET: str = "documents"  # Default bucket name
     
     # AI Service settings
     AI_SERVICE_URL: str = "http://localhost:8000"  # AI service URL for webhook calls
