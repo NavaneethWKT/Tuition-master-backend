@@ -43,7 +43,7 @@ router = APIRouter(
 
 async def create_embeddings_async(
     file_url: str,
-    document_id: str,
+    document_id: str,  # This is actually the study_material_id (UUID from PostgreSQL)
     subject_name: str,
     class_level: str,
     title: str,
@@ -52,10 +52,14 @@ async def create_embeddings_async(
     """
     Asynchronously call AI service to create embeddings for a study material.
     This runs in a separate thread and doesn't block the API response.
+    
+    Args:
+        document_id: The study_material_id (UUID) from PostgreSQL database.
+                     This will be stored in ChromaDB metadata as both document_id and study_material_id.
     """
     thread_id = threading.current_thread().ident
-    logger.info(f"[EMBEDDING] 🚀 [Thread-{thread_id}] Starting embedding creation process for document_id: {document_id}")
-    print(f"[EMBEDDING] 🚀 [Thread-{thread_id}] Starting embedding creation process for document_id: {document_id}")
+    logger.info(f"[EMBEDDING] 🚀 [Thread-{thread_id}] Starting embedding creation process for study_material_id: {document_id}")
+    print(f"[EMBEDDING] 🚀 [Thread-{thread_id}] Starting embedding creation process for study_material_id: {document_id}")
     logger.info(f"[EMBEDDING] [Thread-{thread_id}] Details - Subject: {subject_name}, Class: {class_level}, Title: {title}, Filename: {filename}")
     print(f"[EMBEDDING] [Thread-{thread_id}] Details - Subject: {subject_name}, Class: {class_level}, Title: {title}, Filename: {filename}")
     
@@ -63,9 +67,11 @@ async def create_embeddings_async(
         ai_service_url = settings.AI_SERVICE_URL
         webhook_url = f"{ai_service_url}/api/create-embeddings"
         
+        # document_id here is the study_material_id from PostgreSQL
+        # The AI service will store it in ChromaDB metadata as both document_id and study_material_id
         payload = {
             "file_url": file_url,
-            "document_id": document_id,
+            "document_id": document_id,  # study_material_id (UUID from PostgreSQL)
             "subject": subject_name,
             "class_level": str(class_level),
             "title": title,
@@ -305,11 +311,12 @@ async def upload_document(
             print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Embedding params - Subject: {subject.name}, Class: {class_obj.grade}, Title: {request.title}")
             
             # Create a new thread for embedding creation (completely separate from main thread)
+            # Pass study_material.id as document_id - it will be stored in ChromaDB metadata as study_material_id
             embedding_thread = threading.Thread(
                 target=run_embeddings_in_thread,
                 args=(
                     result.get("url"),
-                    str(study_material.id),
+                    str(study_material.id),  # study_material_id (UUID) - will be stored in metadata
                     subject.name,
                     class_obj.grade,
                     request.title,
