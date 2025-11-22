@@ -17,6 +17,7 @@ from app.api.parent.router import router as parent_router
 from app.api.documents.router import router as documents_router
 from app.api.revision.router import router as revision_router
 from app.api.exam.router import router as exam_router
+from app.api.evaluation.router import router as evaluation_router
 
 # Configure logging
 logging.basicConfig(
@@ -65,6 +66,7 @@ app.include_router(parent_router)
 app.include_router(documents_router)
 app.include_router(revision_router)
 app.include_router(exam_router)
+app.include_router(evaluation_router)
 
 
 @app.get("/")
