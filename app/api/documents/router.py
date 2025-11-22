@@ -5,6 +5,8 @@ import os
 import base64
 import httpx
 import logging
+import threading
+import asyncio
 from sqlalchemy.orm import Session
 from app.api.documents.schemas import (
     Base64UploadRequest,
@@ -23,6 +25,15 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Configure logger to ensure it outputs to console
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
 router = APIRouter(
     prefix="/api/documents",
     tags=["Documents"]
@@ -39,10 +50,13 @@ async def create_embeddings_async(
 ):
     """
     Asynchronously call AI service to create embeddings for a study material.
-    This runs in the background and doesn't block the API response.
+    This runs in a separate thread and doesn't block the API response.
     """
-    logger.info(f"[EMBEDDING] Starting embedding creation process for document_id: {document_id}")
-    logger.info(f"[EMBEDDING] Details - Subject: {subject_name}, Class: {class_level}, Title: {title}, Filename: {filename}")
+    thread_id = threading.current_thread().ident
+    logger.info(f"[EMBEDDING] 🚀 [Thread-{thread_id}] Starting embedding creation process for document_id: {document_id}")
+    print(f"[EMBEDDING] 🚀 [Thread-{thread_id}] Starting embedding creation process for document_id: {document_id}")
+    logger.info(f"[EMBEDDING] [Thread-{thread_id}] Details - Subject: {subject_name}, Class: {class_level}, Title: {title}, Filename: {filename}")
+    print(f"[EMBEDDING] [Thread-{thread_id}] Details - Subject: {subject_name}, Class: {class_level}, Title: {title}, Filename: {filename}")
     
     try:
         ai_service_url = settings.AI_SERVICE_URL
@@ -57,33 +71,96 @@ async def create_embeddings_async(
             "filename": filename
         }
         
-        logger.info(f"[EMBEDDING] Calling AI service webhook: {webhook_url}")
-        logger.debug(f"[EMBEDDING] Payload: {payload}")
+        logger.info(f"[EMBEDDING] [Thread-{thread_id}] Calling AI service webhook: {webhook_url}")
+        print(f"[EMBEDDING] [Thread-{thread_id}] Calling AI service webhook: {webhook_url}")
+        logger.debug(f"[EMBEDDING] [Thread-{thread_id}] Payload: {payload}")
         
         async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minute timeout for large files
+            logger.info(f"[EMBEDDING] [Thread-{thread_id}] Sending POST request to AI service...")
+            print(f"[EMBEDDING] [Thread-{thread_id}] Sending POST request to AI service...")
             response = await client.post(webhook_url, json=payload)
             response.raise_for_status()
             result = response.json()
             
             if result.get("success"):
-                logger.info(f"[EMBEDDING] ✅ SUCCESS: Embeddings created successfully for document_id: {document_id}")
-                logger.info(f"[EMBEDDING] Response: {result.get('message', 'N/A')}, Document ID: {result.get('document_id', 'N/A')}")
+                logger.info(f"[EMBEDDING] ✅ [Thread-{thread_id}] SUCCESS: Embeddings created successfully for document_id: {document_id}")
+                print(f"[EMBEDDING] ✅ [Thread-{thread_id}] SUCCESS: Embeddings created successfully for document_id: {document_id}")
+                logger.info(f"[EMBEDDING] [Thread-{thread_id}] Response: {result.get('message', 'N/A')}, Document ID: {result.get('document_id', 'N/A')}")
+                print(f"[EMBEDDING] [Thread-{thread_id}] Response: {result.get('message', 'N/A')}, Document ID: {result.get('document_id', 'N/A')}")
             else:
                 error_msg = result.get('error', 'Unknown error')
-                logger.warning(f"[EMBEDDING] ⚠️ FAILED: Failed to create embeddings for document_id: {document_id}")
-                logger.warning(f"[EMBEDDING] Error details: {error_msg}")
+                logger.warning(f"[EMBEDDING] ⚠️ [Thread-{thread_id}] FAILED: Failed to create embeddings for document_id: {document_id}")
+                print(f"[EMBEDDING] ⚠️ [Thread-{thread_id}] FAILED: Failed to create embeddings for document_id: {document_id}")
+                logger.warning(f"[EMBEDDING] [Thread-{thread_id}] Error details: {error_msg}")
+                print(f"[EMBEDDING] [Thread-{thread_id}] Error details: {error_msg}")
     
     except httpx.TimeoutException:
-        logger.error(f"[EMBEDDING] ❌ TIMEOUT: Timeout calling AI service for document_id: {document_id} (timeout: 300s)")
+        logger.error(f"[EMBEDDING] ❌ [Thread-{thread_id}] TIMEOUT: Timeout calling AI service for document_id: {document_id} (timeout: 300s)")
+        print(f"[EMBEDDING] ❌ [Thread-{thread_id}] TIMEOUT: Timeout calling AI service for document_id: {document_id} (timeout: 300s)")
     except httpx.HTTPStatusError as e:
-        logger.error(f"[EMBEDDING] ❌ HTTP ERROR: HTTP error calling AI service for document_id: {document_id}")
-        logger.error(f"[EMBEDDING] Status Code: {e.response.status_code}, Response: {e.response.text}")
+        logger.error(f"[EMBEDDING] ❌ [Thread-{thread_id}] HTTP ERROR: HTTP error calling AI service for document_id: {document_id}")
+        print(f"[EMBEDDING] ❌ [Thread-{thread_id}] HTTP ERROR: HTTP error calling AI service for document_id: {document_id}")
+        logger.error(f"[EMBEDDING] [Thread-{thread_id}] Status Code: {e.response.status_code}, Response: {e.response.text}")
+        print(f"[EMBEDDING] [Thread-{thread_id}] Status Code: {e.response.status_code}, Response: {e.response.text}")
     except httpx.RequestError as e:
-        logger.error(f"[EMBEDDING] ❌ REQUEST ERROR: Failed to connect to AI service for document_id: {document_id}")
-        logger.error(f"[EMBEDDING] Error: {str(e)}")
+        logger.error(f"[EMBEDDING] ❌ [Thread-{thread_id}] REQUEST ERROR: Failed to connect to AI service for document_id: {document_id}")
+        print(f"[EMBEDDING] ❌ [Thread-{thread_id}] REQUEST ERROR: Failed to connect to AI service for document_id: {document_id}")
+        logger.error(f"[EMBEDDING] [Thread-{thread_id}] Error: {str(e)}")
+        print(f"[EMBEDDING] [Thread-{thread_id}] Error: {str(e)}")
     except Exception as e:
-        logger.error(f"[EMBEDDING] ❌ UNEXPECTED ERROR: Error calling AI service for document_id: {document_id}")
-        logger.error(f"[EMBEDDING] Error: {str(e)}", exc_info=True)
+        logger.error(f"[EMBEDDING] ❌ [Thread-{thread_id}] UNEXPECTED ERROR: Error calling AI service for document_id: {document_id}")
+        print(f"[EMBEDDING] ❌ [Thread-{thread_id}] UNEXPECTED ERROR: Error calling AI service for document_id: {document_id}")
+        logger.error(f"[EMBEDDING] [Thread-{thread_id}] Error: {str(e)}", exc_info=True)
+        print(f"[EMBEDDING] [Thread-{thread_id}] Error: {str(e)}")
+    finally:
+        logger.info(f"[EMBEDDING] 🏁 [Thread-{thread_id}] Embedding task completed for document_id: {document_id}")
+        print(f"[EMBEDDING] 🏁 [Thread-{thread_id}] Embedding task completed for document_id: {document_id}")
+
+
+def run_embeddings_in_thread(
+    file_url: str,
+    document_id: str,
+    subject_name: str,
+    class_level: str,
+    title: str,
+    filename: str
+):
+    """
+    Wrapper function to run the async embedding creation in a separate thread.
+    This creates a new event loop in the thread and runs the async function.
+    """
+    thread_id = threading.current_thread().ident
+    thread_name = threading.current_thread().name
+    logger.info(f"[THREAD] 🧵 Starting new thread for embeddings - Thread ID: {thread_id}, Name: {thread_name}, Document ID: {document_id}")
+    print(f"[THREAD] 🧵 Starting new thread for embeddings - Thread ID: {thread_id}, Name: {thread_name}, Document ID: {document_id}")
+    
+    try:
+        # Create a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Run the async function
+        loop.run_until_complete(
+            create_embeddings_async(
+                file_url=file_url,
+                document_id=document_id,
+                subject_name=subject_name,
+                class_level=class_level,
+                title=title,
+                filename=filename
+            )
+        )
+    except Exception as e:
+        logger.error(f"[THREAD] ❌ [Thread-{thread_id}] Error in thread execution: {str(e)}")
+        print(f"[THREAD] ❌ [Thread-{thread_id}] Error in thread execution: {str(e)}")
+    finally:
+        # Clean up the event loop
+        try:
+            loop.close()
+        except:
+            pass
+        logger.info(f"[THREAD] 🏁 [Thread-{thread_id}] Thread completed and cleaned up")
+        print(f"[THREAD] 🏁 [Thread-{thread_id}] Thread completed and cleaned up")
 
 
 @router.post(
@@ -103,19 +180,28 @@ async def upload_document(
     The file should be base64 encoded and included in the request body.
     Requires: class_id, subject_id, teacher_id, title, and optionally description.
     """
-    logger.info(f"📥 Received document upload request - Filename: {request.filename}, Title: {request.title}")
-    logger.info(f"📋 Request details - Class ID: {request.class_id}, Subject ID: {request.subject_id}, Teacher ID: {request.teacher_id}")
+    main_thread_id = threading.current_thread().ident
+    logger.info(f"[UPLOAD] 📥 [Main-Thread-{main_thread_id}] Received document upload request - Filename: {request.filename}, Title: {request.title}")
+    print(f"[UPLOAD] 📥 [Main-Thread-{main_thread_id}] Received document upload request - Filename: {request.filename}, Title: {request.title}")
+    logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Request details - Class ID: {request.class_id}, Subject ID: {request.subject_id}, Teacher ID: {request.teacher_id}")
+    print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Request details - Class ID: {request.class_id}, Subject ID: {request.subject_id}, Teacher ID: {request.teacher_id}")
     
     try:
-        # Decode base64 string
+        # Step 1: Decode base64 string
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 1: Decoding base64 string...")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 1: Decoding base64 string...")
         try:
             # Get the base64 string from fileUrl field
             file_base64 = request.fileUrl
+            logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Base64 string length: {len(file_base64)} characters")
+            print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Base64 string length: {len(file_base64)} characters")
             
             # Handle base64 strings with or without data URI prefix
             if file_base64.startswith('data:'):
                 # Remove data URI prefix (e.g., "data:application/pdf;base64,")
                 base64_data = file_base64.split(',', 1)[1]
+                logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Removed data URI prefix")
+                print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Removed data URI prefix")
             else:
                 base64_data = file_base64
             
@@ -126,18 +212,26 @@ async def upload_document(
             missing_padding = len(base64_data) % 4
             if missing_padding:
                 base64_data += '=' * (4 - missing_padding)
+                logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Added {4 - missing_padding} padding characters")
+                print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Added {4 - missing_padding} padding characters")
             
             file_bytes = base64.b64decode(base64_data, validate=True)
+            logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] ✅ Base64 decoded successfully - File size: {len(file_bytes)} bytes")
+            print(f"[UPLOAD] [Main-Thread-{main_thread_id}] ✅ Base64 decoded successfully - File size: {len(file_bytes)} bytes")
         except Exception as e:
+            logger.error(f"[UPLOAD] ❌ [Main-Thread-{main_thread_id}] Base64 decoding failed: {str(e)}")
+            print(f"[UPLOAD] ❌ [Main-Thread-{main_thread_id}] Base64 decoding failed: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid base64 encoding: {str(e)}"
             )
         
-        # Use default folder if not provided
+        # Step 2: Upload to Cloudinary
         upload_folder = request.folder or "tuition_master/documents"
-        
-        logger.info(f"☁️ Uploading file to Cloudinary - Folder: {upload_folder}, Resource Type: {request.resource_type}")
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 2: Uploading file to Cloudinary...")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 2: Uploading file to Cloudinary...")
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary params - Folder: {upload_folder}, Resource Type: {request.resource_type}, Filename: {request.filename}")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary params - Folder: {upload_folder}, Resource Type: {request.resource_type}, Filename: {request.filename}")
         
         # Upload to Cloudinary (public_id will be auto-generated by Cloudinary)
         result = upload_file_from_bytes(
@@ -150,16 +244,89 @@ async def upload_document(
         )
         
         if not result.get("success"):
-            logger.error(f"❌ Cloudinary upload failed: {result.get('error', 'Unknown error')}")
+            logger.error(f"[UPLOAD] ❌ [Main-Thread-{main_thread_id}] Cloudinary upload failed: {result.get('error', 'Unknown error')}")
+            print(f"[UPLOAD] ❌ [Main-Thread-{main_thread_id}] Cloudinary upload failed: {result.get('error', 'Unknown error')}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to upload file: {result.get('error', 'Unknown error')}"
             )
         
-        logger.info(f"✅ File uploaded to Cloudinary successfully - URL: {result.get('url')}, Public ID: {result.get('public_id')}")
+        logger.info(f"[UPLOAD] ✅ [Main-Thread-{main_thread_id}] File uploaded to Cloudinary successfully")
+        print(f"[UPLOAD] ✅ [Main-Thread-{main_thread_id}] File uploaded to Cloudinary successfully")
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary URL: {result.get('url')}")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary URL: {result.get('url')}")
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Public ID: {result.get('public_id')}")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Public ID: {result.get('public_id')}")
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary format: {result.get('format')}")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary format: {result.get('format')}")
         
-        # Get file extension for file_type
-        file_extension = request.filename.split('.')[-1].lower() if '.' in request.filename else 'unknown'
+        # Step 3: Save to database
+        # Determine file extension from filename first, then fallback to Cloudinary format
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 3: Determining file extension...")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 3: Determining file extension...")
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Original filename: '{request.filename}'")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Original filename: '{request.filename}'")
+        
+        # Try to get extension from filename
+        if '.' in request.filename:
+            file_extension_from_filename = request.filename.split('.')[-1].lower().strip()
+            logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Extension from filename: '{file_extension_from_filename}'")
+            print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Extension from filename: '{file_extension_from_filename}'")
+        else:
+            file_extension_from_filename = None
+            logger.warning(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] No extension found in filename: '{request.filename}'")
+            print(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] No extension found in filename: '{request.filename}'")
+        
+        # Get format from Cloudinary response
+        cloudinary_format = result.get('format', '').lower() if result.get('format') else None
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary detected format: '{cloudinary_format}'")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary detected format: '{cloudinary_format}'")
+        
+        # Determine final file extension: prefer filename extension, fallback to Cloudinary format
+        if file_extension_from_filename and file_extension_from_filename != '':
+            file_extension = file_extension_from_filename
+            logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Using extension from filename: '{file_extension}'")
+            print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Using extension from filename: '{file_extension}'")
+        elif cloudinary_format:
+            file_extension = cloudinary_format
+            logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Using extension from Cloudinary format: '{file_extension}'")
+            print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Using extension from Cloudinary format: '{file_extension}'")
+        else:
+            # Try to detect from base64 data URI if available
+            file_base64 = request.fileUrl
+            if file_base64.startswith('data:'):
+                mime_type = file_base64.split(';')[0].split(':')[1]
+                logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] MIME type from data URI: '{mime_type}'")
+                print(f"[UPLOAD] [Main-Thread-{main_thread_id}] MIME type from data URI: '{mime_type}'")
+                # Map common MIME types to extensions
+                mime_to_ext = {
+                    'application/pdf': 'pdf',
+                    'image/jpeg': 'jpg',
+                    'image/png': 'png',
+                    'image/gif': 'gif',
+                    'image/webp': 'webp',
+                    'video/mp4': 'mp4',
+                    'video/quicktime': 'mov',
+                    'application/msword': 'doc',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+                    'application/vnd.ms-excel': 'xls',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+                    'text/plain': 'txt',
+                    'text/csv': 'csv'
+                }
+                file_extension = mime_to_ext.get(mime_type, 'unknown')
+                logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Extension from MIME type: '{file_extension}'")
+                print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Extension from MIME type: '{file_extension}'")
+            else:
+                file_extension = 'unknown'
+                logger.warning(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] Could not determine file extension, using 'unknown'")
+                print(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] Could not determine file extension, using 'unknown'")
+        
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Final file extension: '{file_extension}'")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Final file extension: '{file_extension}'")
+        
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 3: Saving study material to database...")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 3: Saving study material to database...")
         
         # Create study material record in database
         study_material = models.StudyMaterial(
@@ -178,43 +345,70 @@ async def upload_document(
         db.commit()
         db.refresh(study_material)
         
-        logger.info(f"✅ Study material saved to database - ID: {study_material.id}, Title: {request.title}")
-        logger.info(f"📁 Cloudinary URL: {result.get('url')}, Public ID: {result.get('public_id')}")
+        logger.info(f"[UPLOAD] ✅ [Main-Thread-{main_thread_id}] Study material saved to database")
+        print(f"[UPLOAD] ✅ [Main-Thread-{main_thread_id}] Study material saved to database")
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Study Material ID: {study_material.id}, Title: {request.title}")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Study Material ID: {study_material.id}, Title: {request.title}")
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary URL: {result.get('url')}, Public ID: {result.get('public_id')}")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Cloudinary URL: {result.get('url')}, Public ID: {result.get('public_id')}")
+        
+        # Step 4: Schedule embedding creation in separate thread (only for PDF files)
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 4: Checking if embedding creation is needed...")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 4: Checking if embedding creation is needed...")
         
         # Get subject name and class grade from database for embeddings
         subject = db.query(models.Subject).filter(models.Subject.id == request.subject_id).first()
         class_obj = db.query(models.Class).filter(models.Class.id == request.class_id).first()
         
-        # Trigger background task to create embeddings (only for PDF files)
         if file_extension.lower() == 'pdf' and subject and class_obj:
-            logger.info(f"📄 PDF file detected - Scheduling embedding creation in background")
-            logger.info(f"📋 Embedding params - Subject: {subject.name}, Class: {class_obj.grade}, Title: {request.title}")
+            logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] 📄 PDF file detected - Creating separate thread for embedding creation")
+            print(f"[UPLOAD] [Main-Thread-{main_thread_id}] 📄 PDF file detected - Creating separate thread for embedding creation")
+            logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Embedding params - Subject: {subject.name}, Class: {class_obj.grade}, Title: {request.title}")
+            print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Embedding params - Subject: {subject.name}, Class: {class_obj.grade}, Title: {request.title}")
             
-            background_tasks.add_task(
-                create_embeddings_async,
-                file_url=result.get("url"),
-                document_id=str(study_material.id),
-                subject_name=subject.name,
-                class_level=class_obj.grade,
-                title=request.title,
-                filename=request.filename
+            # Create a new thread for embedding creation (completely separate from main thread)
+            embedding_thread = threading.Thread(
+                target=run_embeddings_in_thread,
+                args=(
+                    result.get("url"),
+                    str(study_material.id),
+                    subject.name,
+                    class_obj.grade,
+                    request.title,
+                    request.filename
+                ),
+                name=f"EmbeddingThread-{study_material.id}",
+                daemon=True  # Daemon thread will be killed when main program exits
             )
-            logger.info(f"✅ Background task scheduled for embedding creation - study_material_id: {study_material.id}")
+            
+            embedding_thread.start()
+            logger.info(f"[UPLOAD] ✅ [Main-Thread-{main_thread_id}] Separate thread started for embedding creation - Thread Name: {embedding_thread.name}, Study Material ID: {study_material.id}")
+            print(f"[UPLOAD] ✅ [Main-Thread-{main_thread_id}] Separate thread started for embedding creation - Thread Name: {embedding_thread.name}, Study Material ID: {study_material.id}")
+            logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] ⚡ Main thread continues without blocking - Response will be sent immediately")
+            print(f"[UPLOAD] [Main-Thread-{main_thread_id}] ⚡ Main thread continues without blocking - Response will be sent immediately")
         elif file_extension.lower() != 'pdf':
-            logger.info(f"⏭️ Skipping embeddings for non-PDF file type: {file_extension}")
+            logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] ⏭️ Skipping embeddings for non-PDF file type: {file_extension}")
+            print(f"[UPLOAD] [Main-Thread-{main_thread_id}] ⏭️ Skipping embeddings for non-PDF file type: {file_extension}")
         else:
-            logger.warning(f"⚠️ Could not find subject or class for study_material_id: {study_material.id} - Embeddings will not be created")
+            logger.warning(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] Could not find subject or class for study_material_id: {study_material.id} - Embeddings will not be created")
+            print(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] Could not find subject or class for study_material_id: {study_material.id} - Embeddings will not be created")
             if not subject:
-                logger.warning(f"⚠️ Subject not found with ID: {request.subject_id}")
+                logger.warning(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] Subject not found with ID: {request.subject_id}")
+                print(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] Subject not found with ID: {request.subject_id}")
             if not class_obj:
-                logger.warning(f"⚠️ Class not found with ID: {request.class_id}")
+                logger.warning(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] Class not found with ID: {request.class_id}")
+                print(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] Class not found with ID: {request.class_id}")
         
-        # Ensure public_id is included in response
+        # Step 5: Prepare response
         public_id = result.get("public_id")
         if not public_id:
-            logger.warning(f"⚠️ No public_id returned from Cloudinary for study_material_id: {study_material.id}")
+            logger.warning(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] No public_id returned from Cloudinary for study_material_id: {study_material.id}")
+            print(f"[UPLOAD] ⚠️ [Main-Thread-{main_thread_id}] No public_id returned from Cloudinary for study_material_id: {study_material.id}")
         
-        logger.info(f"📤 Returning response to client - study_material_id: {study_material.id}, public_id: {public_id}")
+        logger.info(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 5: Preparing response...")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Step 5: Preparing response...")
+        logger.info(f"[UPLOAD] 📤 [Main-Thread-{main_thread_id}] Returning response to client - study_material_id: {study_material.id}, public_id: {public_id}")
+        print(f"[UPLOAD] 📤 [Main-Thread-{main_thread_id}] Returning response to client - study_material_id: {study_material.id}, public_id: {public_id}")
         
         return DocumentUploadResponse(
             success=True,
@@ -234,6 +428,11 @@ async def upload_document(
     except Exception as e:
         # Rollback database transaction on error
         db.rollback()
+        logger.error(f"[UPLOAD] ❌ [Main-Thread-{main_thread_id}] Error uploading document: {str(e)}")
+        print(f"[UPLOAD] ❌ [Main-Thread-{main_thread_id}] Error uploading document: {str(e)}")
+        import traceback
+        logger.error(f"[UPLOAD] [Main-Thread-{main_thread_id}] Traceback: {traceback.format_exc()}")
+        print(f"[UPLOAD] [Main-Thread-{main_thread_id}] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error uploading file: {str(e)}"
@@ -423,8 +622,26 @@ async def get_document_url(
     
     Note: Use query parameter instead of path parameter to support public_ids with slashes.
     """
+    thread_id = threading.current_thread().ident
+    logger.info(f"[VIEW] 📄 [Thread-{thread_id}] View document request received - Public ID: {public_id}, Resource Type: {resource_type}")
+    print(f"[VIEW] 📄 [Thread-{thread_id}] View document request received - Public ID: {public_id}, Resource Type: {resource_type}")
+    
     try:
+        logger.info(f"[VIEW] [Thread-{thread_id}] Step 1: Fetching document URL from Cloudinary...")
+        print(f"[VIEW] [Thread-{thread_id}] Step 1: Fetching document URL from Cloudinary...")
+        logger.info(f"[VIEW] [Thread-{thread_id}] Cloudinary params - Public ID: {public_id}, Resource Type: {resource_type}")
+        print(f"[VIEW] [Thread-{thread_id}] Cloudinary params - Public ID: {public_id}, Resource Type: {resource_type}")
+        
         url = get_file_url(public_id=public_id, resource_type=resource_type)
+        
+        logger.info(f"[VIEW] ✅ [Thread-{thread_id}] Document URL retrieved successfully")
+        print(f"[VIEW] ✅ [Thread-{thread_id}] Document URL retrieved successfully")
+        logger.info(f"[VIEW] [Thread-{thread_id}] Public ID: {public_id}")
+        print(f"[VIEW] [Thread-{thread_id}] Public ID: {public_id}")
+        logger.info(f"[VIEW] [Thread-{thread_id}] URL: {url}")
+        print(f"[VIEW] [Thread-{thread_id}] URL: {url}")
+        logger.info(f"[VIEW] 📤 [Thread-{thread_id}] Returning response to client")
+        print(f"[VIEW] 📤 [Thread-{thread_id}] Returning response to client")
         
         return DocumentURLResponse(
             url=url,
@@ -432,6 +649,13 @@ async def get_document_url(
         )
     
     except Exception as e:
+        logger.error(f"[VIEW] ❌ [Thread-{thread_id}] Error getting file URL for public_id: {public_id}")
+        print(f"[VIEW] ❌ [Thread-{thread_id}] Error getting file URL for public_id: {public_id}")
+        logger.error(f"[VIEW] [Thread-{thread_id}] Error details: {str(e)}")
+        print(f"[VIEW] [Thread-{thread_id}] Error details: {str(e)}")
+        import traceback
+        logger.error(f"[VIEW] [Thread-{thread_id}] Traceback: {traceback.format_exc()}")
+        print(f"[VIEW] [Thread-{thread_id}] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting file URL: {str(e)}"

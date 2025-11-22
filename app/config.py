@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
     
     # AI Service settings
-    AI_SERVICE_URL: str = "http://localhost:8000"  # AI service URL for webhook calls
+    AI_SERVICE_URL: str = "https://nonzealous-vectorially-adolfo.ngrok-free.dev"  # AI service URL for webhook calls
     
     @property
     def DATABASE_URL(self) -> str:
