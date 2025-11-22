@@ -1,11 +1,14 @@
-from fastapi import APIRouter, HTTPException, status, Body, Depends, Query
-from typing import Optional
+from fastapi import APIRouter, HTTPException, status, Body, Depends, Query, Path
+from typing import Optional, List
 import httpx
 import logging
 from sqlalchemy.orm import Session
+from uuid import UUID
 from app.api.revision.schemas import (
     RevisionPointersRequest,
-    RevisionPointersResponse
+    RevisionPointersResponse,
+    RevisionCreate,
+    RevisionResponse
 )
 from app.database import get_db
 from app import models
@@ -162,4 +165,92 @@ async def get_revision_pointers(
         chapter=chapter
     )
     return await generate_revision_pointers(request=request, db=db)
+
+
+@router.post(
+    "/revisions",
+    response_model=RevisionResponse,
+    status_code=status.HTTP_201_CREATED
+)
+async def create_revision(
+    revision_data: RevisionCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new revision for a student.
+    
+    Requires:
+    - student_id: UUID of the student
+    - subject: Subject name (string)
+    - class_level: Class level (string)
+    - chapter: Chapter name (string)
+    - pointers: Array of strings (revision pointers)
+    - total_pointers: Total number of pointers (integer)
+    """
+    logger.info(f"📝 Creating revision for student_id: {revision_data.student_id}")
+    
+    # Verify student exists
+    student = db.query(models.Student).filter(models.Student.id == revision_data.student_id).first()
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Student not found with ID: {revision_data.student_id}"
+        )
+    
+    # Validate total_pointers matches the length of pointers array
+    if revision_data.total_pointers != len(revision_data.pointers):
+        logger.warning(f"⚠️ total_pointers ({revision_data.total_pointers}) doesn't match pointers array length ({len(revision_data.pointers)}). Using array length.")
+        revision_data.total_pointers = len(revision_data.pointers)
+    
+    # Create revision record
+    revision = models.Revision(
+        student_id=revision_data.student_id,
+        subject=revision_data.subject,
+        class_level=revision_data.class_level,
+        chapter=revision_data.chapter,
+        pointers=revision_data.pointers,
+        total_pointers=revision_data.total_pointers
+    )
+    
+    db.add(revision)
+    db.commit()
+    db.refresh(revision)
+    
+    logger.info(f"✅ Revision created successfully - ID: {revision.id}, Student: {revision_data.student_id}, Subject: {revision_data.subject}, Chapter: {revision_data.chapter}")
+    
+    return revision
+
+
+@router.get(
+    "/students/{student_id}/revisions",
+    response_model=List[RevisionResponse],
+    status_code=status.HTTP_200_OK
+)
+async def get_student_revisions(
+    student_id: UUID = Path(..., description="Student ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve all revisions for a particular student.
+    
+    Returns a list of all revisions associated with the specified student.
+    """
+    logger.info(f"📖 Retrieving revisions for student_id: {student_id}")
+    
+    # Verify student exists
+    student = db.query(models.Student).filter(models.Student.id == student_id).first()
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Student not found with ID: {student_id}"
+        )
+    
+    # Get all revisions for the student
+    revisions = db.query(models.Revision).filter(
+        models.Revision.student_id == student_id
+    ).order_by(models.Revision.created_at.desc()).all()
+    
+    logger.info(f"✅ Found {len(revisions)} revision(s) for student_id: {student_id}")
+    
+    return revisions
 

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from uuid import UUID
+from datetime import datetime
 
 
 class RevisionPointersRequest(BaseModel):
@@ -21,4 +22,30 @@ class RevisionPointersResponse(BaseModel):
     total_pointers: int = 0
     error: Optional[str] = None
     timestamp: Optional[str] = None
+
+
+class RevisionCreate(BaseModel):
+    """Schema for creating a revision"""
+    student_id: UUID
+    subject: str
+    class_level: str
+    chapter: str
+    pointers: List[str]  # Array of strings
+    total_pointers: int
+
+
+class RevisionResponse(BaseModel):
+    """Schema for revision response"""
+    id: UUID
+    student_id: UUID
+    subject: str
+    class_level: str
+    chapter: str
+    pointers: List[str]
+    total_pointers: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
 
