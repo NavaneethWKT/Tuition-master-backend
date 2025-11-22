@@ -12,6 +12,7 @@ from app.api.school_admin.router import router as school_admin_router
 from app.api.teacher.router import router as teacher_router
 from app.api.student.router import router as student_router
 from app.api.parent.router import router as parent_router
+from app.api.documents.router import router as documents_router
 
 # Initialize database extensions and triggers
 init_db()
@@ -42,6 +43,7 @@ app.include_router(school_admin_router)
 app.include_router(teacher_router)
 app.include_router(student_router)
 app.include_router(parent_router)
+app.include_router(documents_router)
 
 
 @app.get("/")

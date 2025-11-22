@@ -5,9 +5,17 @@ from typing import Optional
 class Settings(BaseSettings):
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
-    DB_USER: str = "navaneethn"
+    DB_USER: str = "aprameyar"
     DB_PASSWORD: str = ""
     DB_NAME: str = "tuition_master_db"
+    
+    # Cloudinary settings
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+    
+    # AI Service settings
+    AI_SERVICE_URL: str = "http://localhost:8000"  # AI service URL for webhook calls
     
     @property
     def DATABASE_URL(self) -> str:

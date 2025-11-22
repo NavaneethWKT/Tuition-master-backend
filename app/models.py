@@ -177,6 +177,7 @@ class StudyMaterial(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text)
     file_url = Column(Text, nullable=False)
+    public_id = Column(String(255), nullable=True)  # Cloudinary public_id for file management
     file_type = Column(String(50), nullable=False)
     file_size = Column(BigInteger)
     upload_date = Column(DateTime(timezone=True), server_default=func.now())
