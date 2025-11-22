@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
+import logging
+import sys
 from app import models
 from app.database import engine, get_db, init_db, run_migrations
 
@@ -13,6 +15,21 @@ from app.api.teacher.router import router as teacher_router
 from app.api.student.router import router as student_router
 from app.api.parent.router import router as parent_router
 from app.api.documents.router import router as documents_router
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.StreamHandler(sys.stdout)  # Output to console
+    ]
+)
+
+# Set specific loggers to INFO level
+logging.getLogger("app").setLevel(logging.INFO)
+logging.getLogger("uvicorn").setLevel(logging.INFO)
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 
 # Initialize database extensions and triggers
 init_db()
