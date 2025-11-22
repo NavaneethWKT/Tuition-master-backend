@@ -407,12 +407,12 @@ async def delete_document(
 
 
 @router.get(
-    "/url/{public_id}",
+    "/url",
     response_model=DocumentURLResponse,
     status_code=status.HTTP_200_OK
 )
 async def get_document_url(
-    public_id: str,
+    public_id: str = Query(..., description="Public ID of the document (can include folder path, e.g., 'tuition_master/documents/my_file')"),
     resource_type: str = Query("auto", description="Resource type: auto, image, raw, video")
 ):
     """
@@ -420,6 +420,8 @@ async def get_document_url(
     
     The public_id should include the folder path if the file was uploaded to a folder.
     Example: "tuition_master/documents/my_file"
+    
+    Note: Use query parameter instead of path parameter to support public_ids with slashes.
     """
     try:
         url = get_file_url(public_id=public_id, resource_type=resource_type)
